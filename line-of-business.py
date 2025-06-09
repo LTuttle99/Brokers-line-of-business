@@ -544,10 +544,6 @@ if uploaded_file is not None:
             border-right: 10px solid transparent;
             border-bottom: 20px solid var(--color); /* Triangle pointing up */
             margin-right: 8px;
-            /* The borders below were causing issues with coloring the triangle via CSS variable */
-            /* border-top: 1px solid #333; */
-            /* border-left: 1px solid #333; */
-            /* border-right: 1px solid #333; */
         }
         .legend-shape-diamond {
             width: 20px;
@@ -600,7 +596,6 @@ if uploaded_file is not None:
             unsafe_allow_html=True
         )
     with col_legend3:
-        # Correctly pass the color as a CSS variable for the triangle
         st.markdown(
             f"<div class='legend-item'><div class='legend-shape-triangle' style='--color:{node_colors['broker_through']}'></div> Broker (Through)</div>",
             unsafe_allow_html=True
@@ -632,44 +627,50 @@ if uploaded_file is not None:
         else:
             st.info("Upload data and apply filters to see the network visualization.")
     else:
-        net = Network(height="750px", width="100%", directed=False, notebook=True)
+        # Set directed=True to indicate flow, and notebook=True for Streamlit embedding
+        net = Network(height="750px", width="100%", directed=True, notebook=True)
         net.toggle_physics(True)
 
         added_nodes = set()
 
         # Add nodes and edges based on filtered data
         for carrier, info in network_source_data.items():
+            # Add Carrier node
             if carrier not in added_nodes:
                 net.add_node(carrier, label=carrier, color=node_colors['carrier'], shape=node_shapes['carrier'], title=f"Carrier: {carrier}")
                 added_nodes.add(carrier)
 
-            # Add Brokers To with distinct properties
-            for broker_to in info['Brokers to']:
-                if broker_to not in added_nodes:
-                    net.add_node(broker_to, label=broker_to, color=node_colors['broker_to'], shape=node_shapes['broker_to'], title=f"Broker (To): {broker_to}")
-                    added_nodes.add(broker_to)
-                net.add_edge(carrier, broker_to, title="Brokers to", color="#007BFF") # Blue edge
-
-            # Add Brokers Through with distinct properties
-            for broker_through in info['Brokers through']:
-                if broker_through not in added_nodes:
-                    net.add_node(broker_through, label=broker_through, color=node_colors['broker_through'], shape=node_shapes['broker_through'], title=f"Broker (Through): {broker_through}")
-                    added_nodes.add(broker_through)
-                net.add_edge(carrier, broker_through, title="Brokers through", color="#28A745") # Green edge
-
-            # Add Broker Entities
-            for entity in info['broker entity of']:
-                if entity not in added_nodes:
-                    net.add_node(entity, label=entity, color=node_colors['entity'], shape=node_shapes['entity'], title=f"Broker Entity: {entity}")
-                    added_nodes.add(entity)
-                net.add_edge(carrier, entity, title="Broker entity of", color="#FFC107") # Yellow/Orange edge
-
-            # Add Relationship Owners
+            # Add Relationship Owners and edges (Owner -> Carrier)
             for owner in info['relationship owner']:
                 if owner not in added_nodes:
                     net.add_node(owner, label=owner, color=node_colors['owner'], shape=node_shapes['owner'], title=f"Relationship Owner: {owner}")
                     added_nodes.add(owner)
-                net.add_edge(carrier, owner, title="Relationship owner", color="#DC3545") # Red edge
+                # Edge from owner to carrier, with visible label
+                net.add_edge(owner, carrier, label="Relationship owner", title="Relationship owner", color="#DC3545", arrows='to') 
+
+            # Add Brokers To and edges (Carrier -> Broker To)
+            for broker_to in info['Brokers to']:
+                if broker_to not in added_nodes:
+                    net.add_node(broker_to, label=broker_to, color=node_colors['broker_to'], shape=node_shapes['broker_to'], title=f"Broker (To): {broker_to}")
+                    added_nodes.add(broker_to)
+                # Edge from carrier to broker_to, with visible label
+                net.add_edge(carrier, broker_to, label="Brokers to", title="Brokers to", color="#007BFF", arrows='to')
+
+            # Add Brokers Through and edges (Carrier -> Broker Through)
+            for broker_through in info['Brokers through']:
+                if broker_through not in added_nodes:
+                    net.add_node(broker_through, label=broker_through, color=node_colors['broker_through'], shape=node_shapes['broker_through'], title=f"Broker (Through): {broker_through}")
+                    added_nodes.add(broker_through)
+                # Edge from carrier to broker_through, with visible label
+                net.add_edge(carrier, broker_through, label="Brokers through", title="Brokers through", color="#28A745", arrows='to')
+
+            # Add Broker Entities and edges (Carrier -> Broker Entity)
+            for entity in info['broker entity of']:
+                if entity not in added_nodes:
+                    net.add_node(entity, label=entity, color=node_colors['entity'], shape=node_shapes['entity'], title=f"Broker Entity: {entity}")
+                    added_nodes.add(entity)
+                # Edge from carrier to entity, with visible label
+                net.add_edge(carrier, entity, label="Broker entity of", title="Broker entity of", color="#FFC107", arrows='to')
 
         try:
             path = "/tmp/pyvis_graph.html"
