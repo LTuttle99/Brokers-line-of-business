@@ -3,18 +3,18 @@ import pandas as pd
 import io
 import plotly.express as px
 import plotly.io as pio
-from pyvis.network import Network # Added for network visualization
-import streamlit.components.v1 as components # Added for embedding HTML
+from pyvis.network import Network
+import streamlit.components.v1 as components
 
 # --- SET UP STREAMLIT PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="Carrier Relationship Viewer",
-    layout="wide", # Use 'wide' layout for more space
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
 st.title("🔍 Carrier Relationship Viewer")
-st.markdown("---") # Add a separator for visual appeal
+st.markdown("---")
 st.write("Upload your Excel/CSV file to explore broker relationships for each carrier.")
 
 # --- FILE UPLOADER ---
@@ -43,7 +43,7 @@ with st.sidebar.expander("ℹ️ About this App"):
         5. Download the displayed details for selected carriers.
         """
     )
-    st.write("---") # Separator within the expander
+    st.write("---")
     st.write("Developed with Streamlit.")
 
 # --- IN-APP SAMPLE FILE DOWNLOAD (Only in sidebar) ---
@@ -64,7 +64,7 @@ st.sidebar.download_button(
     file_name='Sample Carrier Relationships.csv',
     mime='text/csv',
     help="Download a sample CSV file with the correct column headers.",
-    key="sample_download_sidebar" # Unique key for the sample download button
+    key="sample_download_sidebar"
 )
 
 # --- Caching Data Loading and Processing ---
@@ -93,7 +93,7 @@ def load_and_process_data(file_buffer, file_type):
         st.error(f"Missing required columns in the uploaded file: **{', '.join(missing_cols)}**")
         st.write("Please ensure your file has the following exact column headers:")
         st.code(", ".join(expected_columns))
-        st.stop() # Stop execution if columns are missing
+        st.stop()
 
     # --- Data Aggregation for carrier_data dictionary ---
     carrier_data = {}
@@ -105,11 +105,11 @@ def load_and_process_data(file_buffer, file_type):
     for index, row in df.iterrows():
         carrier = str(row['Carrier']).strip() if pd.notna(row['Carrier']) else "Unnamed Carrier"
         
-        if not carrier: # Treat truly empty strings as "Unnamed Carrier" for processing
+        if not carrier:
             carrier = "Unnamed Carrier"
 
         if carrier == "Unnamed Carrier" and all(pd.isna(row[col]) or not str(row[col]).strip() for col in expected_columns[1:]):
-            continue # Skip fully empty or unnamed carrier rows
+            continue
 
         if carrier not in carrier_data:
             carrier_data[carrier] = {
@@ -117,10 +117,10 @@ def load_and_process_data(file_buffer, file_type):
                 'Brokers through': set(),
                 'broker entity of': set(),
                 'relationship owner': set(),
-                'original_rows': [] # To store original rows for global filtering and details
+                'original_rows': []
             }
         
-        carrier_data[carrier]['original_rows'].append(index) # Store row index for later filtering
+        carrier_data[carrier]['original_rows'].append(index)
 
         # Process 'Brokers to'
         brokers_to_val = str(row['Brokers to']).strip() if pd.notna(row['Brokers to']) else ""
@@ -177,7 +177,7 @@ if uploaded_file is not None:
     if "carrier_search_input_val" not in st.session_state:
         st.session_state.carrier_search_input_val = ""
     if "carrier_multiselect_val" not in st.session_state:
-        st.session_state.carrier_multiselect_val = [] # Keep selected carriers when clearing filters
+        st.session_state.carrier_multiselect_val = []
 
     # Clear All Filters Button
     def clear_filters():
@@ -186,39 +186,38 @@ if uploaded_file is not None:
         st.session_state.filter_broker_entity_val = []
         st.session_state.filter_relationship_owner_val = []
         st.session_state.carrier_search_input_val = ""
-        st.session_state.carrier_multiselect_val = [] 
-        st.rerun() # Rerun to apply cleared filters
+        st.session_state.carrier_multiselect_val = []
+        st.rerun()
 
     st.sidebar.button("🗑️ Clear All Filters", on_click=clear_filters)
 
     selected_filter_brokers_to = st.sidebar.multiselect(
         "Filter by 'Brokers to'",
         options=sorted(list(all_brokers_to)),
-        key="filter_brokers_to_val", # Use session state key here
+        key="filter_brokers_to_val",
         default=st.session_state.filter_brokers_to_val
     )
     selected_filter_brokers_through = st.sidebar.multiselect(
         "Filter by 'Brokers through'",
         options=sorted(list(all_brokers_through)),
-        key="filter_brokers_through_val", # Use session state key here
+        key="filter_brokers_through_val",
         default=st.session_state.filter_brokers_through_val
     )
     selected_filter_broker_entity = st.sidebar.multiselect(
         "Filter by 'broker entity of'",
         options=sorted(list(all_broker_entities)),
-        key="filter_broker_entity_val", # Use session state key here
+        key="filter_broker_entity_val",
         default=st.session_state.filter_broker_entity_val
     )
     selected_filter_relationship_owner = st.sidebar.multiselect(
         "Filter by 'relationship owner'",
         options=sorted(list(all_relationship_owners)),
-        key="filter_relationship_owner_val", # Use session state key here
+        key="filter_relationship_owner_val",
         default=st.session_state.filter_relationship_owner_val
     )
 
     # Apply global filters to narrow down the list of carriers for selection AND visualization
     filtered_unique_carriers_for_selection = []
-    # Create a dictionary for filtered carrier data, which will be used for both selection and visualizations
     filtered_carrier_data_for_viz = {}
 
     for carrier in unique_carriers:
@@ -240,9 +239,8 @@ if uploaded_file is not None:
         
         if include_carrier:
             filtered_unique_carriers_for_selection.append(carrier)
-            filtered_carrier_data_for_viz[carrier] = info # Add carrier info to filtered data for viz
+            filtered_carrier_data_for_viz[carrier] = info
     
-    # Sort filtered carriers again for good measure
     filtered_unique_carriers_for_selection = sorted(filtered_unique_carriers_for_selection)
 
     # --- SUMMARY STATISTICS ---
@@ -268,8 +266,8 @@ if uploaded_file is not None:
     # Search bar
     search_query = st.text_input(
         "Type to search for a Carrier:",
-        value=st.session_state.carrier_search_input_val, # Use session state for default value
-        key="carrier_search_input_val" # Use session state key here
+        value=st.session_state.carrier_search_input_val,
+        key="carrier_search_input_val"
     ).strip()
 
     # Filter carriers based on search query AND global filters (using filtered_unique_carriers_for_selection)
@@ -285,16 +283,14 @@ if uploaded_file is not None:
             st.warning("Adjust filters or search query to find more carriers.")
 
 
-    if not search_filtered_carriers and search_query: # This condition might overlap with the warning above but is more specific for no search results
-        # Only set selected_carriers to empty if search_query is active AND no results
-        selected_carriers = [] 
+    if not search_filtered_carriers and search_query:
+        selected_carriers = []
     else:
-        # Multi-select for carriers
         selected_carriers = st.multiselect(
             "✨ Choose one or more Carriers from the filtered list:",
             options=search_filtered_carriers,
-            default=st.session_state.carrier_multiselect_val if search_query == st.session_state.carrier_search_input_val else [], # Restore default unless search query changes
-            key="carrier_multiselect_val" # Use session state key here
+            default=st.session_state.carrier_multiselect_val if search_query == st.session_state.carrier_search_input_val else [],
+            key="carrier_multiselect_val"
         )
     st.markdown("---")
 
@@ -308,7 +304,7 @@ if uploaded_file is not None:
             'Brokers through': set(),
             'broker entity of': set(),
             'relationship owner': set(),
-            'carrier_specific_details': {} # Store individual carrier details here
+            'carrier_specific_details': {}
         }
         
         download_rows = []
@@ -317,13 +313,11 @@ if uploaded_file is not None:
             if carrier in carrier_data:
                 info = carrier_data[carrier]
                 
-                # Aggregate for combined display
                 combined_details['Brokers to'].update(info['Brokers to'])
                 combined_details['Brokers through'].update(info['Brokers through'])
                 combined_details['broker entity of'].update(info['broker entity of'])
                 combined_details['relationship owner'].update(info['relationship owner'])
 
-                # Store details for individual display and download
                 download_rows.append({
                     "Carrier": carrier,
                     "Brokers to": ", ".join(info['Brokers to']),
@@ -374,10 +368,10 @@ if uploaded_file is not None:
             st.markdown("---")
 
         # --- Display Individual Carrier Details ---
-        if selected_carriers: # Ensure there are carriers to display individual details for
+        if selected_carriers:
             st.markdown("### Individual Carrier Details:")
             for carrier_idx, carrier in enumerate(selected_carriers):
-                if carrier in carrier_data: # Ensure carrier exists in processed data
+                if carrier in carrier_data:
                     st.markdown(f"##### Details for **{carrier}**:")
                     info = carrier_data[carrier]
 
@@ -385,7 +379,7 @@ if uploaded_file is not None:
                     col_ind3, col_ind4 = st.columns(2)
 
                     with col_ind1:
-                        st.markdown("**👉 Brokers To:**") # Added emoji
+                        st.markdown("**👉 Brokers To:**")
                         if info['Brokers to']:
                             for broker in info['Brokers to']:
                                 st.markdown(f"- {broker}")
@@ -393,7 +387,7 @@ if uploaded_file is not None:
                             st.markdown("*(None)*")
 
                     with col_ind2:
-                        st.markdown("**🤝 Brokers Through:**") # Added emoji
+                        st.markdown("**🤝 Brokers Through:**")
                         if info['Brokers through']:
                             for broker in info['Brokers through']:
                                 st.markdown(f"- {broker}")
@@ -401,7 +395,7 @@ if uploaded_file is not None:
                             st.markdown("*(None)*")
                     
                     with col_ind3:
-                        st.markdown("**🏢 Broker Entity Of:**") # Added emoji
+                        st.markdown("**🏢 Broker Entity Of:**")
                         if info['broker entity of']:
                             for entity in info['broker entity of']:
                                 st.markdown(f"- {entity}")
@@ -409,20 +403,20 @@ if uploaded_file is not None:
                             st.markdown("*(None)*")
 
                     with col_ind4:
-                        st.markdown("**👤 Relationship Owner:**") # Added emoji
+                        st.markdown("**👤 Relationship Owner:**")
                         if info['relationship owner']:
                             for owner in info['relationship owner']:
                                 st.markdown(f"- {owner}")
                         else:
                             st.markdown("*(None)*")
                     
-                    if carrier_idx < len(selected_carriers) - 1: # Add a separator between individual carriers
+                    if carrier_idx < len(selected_carriers) - 1:
                         st.markdown("---")
             st.markdown("---")
 
 
         # --- DOWNLOAD BUTTON ---
-        if download_rows: # Only show download button if there are valid rows to download
+        if download_rows:
             download_df = pd.DataFrame(download_rows)
             csv_string = download_df.to_csv(index=False).encode('utf-8')
             
@@ -432,26 +426,23 @@ if uploaded_file is not None:
                 file_name=f"selected_carriers_relationships.csv",
                 mime="text/csv",
                 help="Download the displayed information for the selected carriers as a CSV file.",
-                key="selected_carriers_download" # Unique key for this button
+                key="selected_carriers_download"
             )
 
-    else: # Message if no carriers are selected in the multi-select
+    else:
         st.info("⬆️ Please select one or more carriers from the dropdown above to view their details.")
 
     # --- VISUALIZATIONS (NOW FILTERED) ---
     st.markdown("---")
     st.markdown("## 📊 Relationship Visualizations (Filtered Data)")
 
-    # Data for visualizations now comes from filtered_carrier_data_for_viz
-    # This ensures charts reflect global filters and search query
-    
     # Bar chart for Top Brokers To
     brokers_to_counts = pd.Series([b for carrier_info in filtered_carrier_data_for_viz.values() for b in carrier_info['Brokers to']])
     if not brokers_to_counts.empty:
         top_brokers_to = brokers_to_counts.value_counts().reset_index()
         top_brokers_to.columns = ['Broker', 'Count']
         fig_brokers_to = px.bar(
-            top_brokers_to.head(10), # Show top 10
+            top_brokers_to.head(10),
             x='Broker',
             y='Count',
             title='Top 10 "Brokers To" by Carrier Associations (Filtered)',
@@ -459,7 +450,6 @@ if uploaded_file is not None:
             height=400
         )
         st.plotly_chart(fig_brokers_to, use_container_width=True)
-        # Export chart button
         img_bytes_brokers_to = pio.to_image(fig_brokers_to, format='png')
         st.download_button(
             label="🖼️ Download 'Brokers To' Chart",
@@ -477,7 +467,7 @@ if uploaded_file is not None:
         top_brokers_through = brokers_through_counts.value_counts().reset_index()
         top_brokers_through.columns = ['Broker', 'Count']
         fig_brokers_through = px.bar(
-            top_brokers_through.head(10), # Show top 10
+            top_brokers_through.head(10),
             x='Broker',
             y='Count',
             title='Top 10 "Brokers Through" by Carrier Associations (Filtered)',
@@ -485,7 +475,6 @@ if uploaded_file is not None:
             height=400
         )
         st.plotly_chart(fig_brokers_through, use_container_width=True)
-        # Export chart button
         img_bytes_brokers_through = pio.to_image(fig_brokers_through, format='png')
         st.download_button(
             label="🖼️ Download 'Brokers Through' Chart",
@@ -511,7 +500,6 @@ if uploaded_file is not None:
             height=400
         )
         st.plotly_chart(fig_owners, use_container_width=True)
-        # Export chart button
         img_bytes_owners = pio.to_image(fig_owners, format='png')
         st.download_button(
             label="🖼️ Download 'Relationship Owners' Chart",
@@ -526,18 +514,105 @@ if uploaded_file is not None:
     st.markdown("---")
     st.markdown("## 🕸️ Interactive Network Visualization")
 
-    if not filtered_carrier_data_for_viz:
-        st.info("Upload data and apply filters to see the network visualization.")
-    else:
-        # Create a Pyvis Network object
-        # Setting directed=True as relationships might be directional (e.g., 'Brokers to')
-        net = Network(height="750px", width="100%", directed=False, notebook=True)
-        net.toggle_physics(True) # Enable physics for node repulsion/attraction
+    # --- Legend for Network Graph ---
+    st.markdown("### Network Legend:")
+    # Using markdown with colored spans for better visibility
+    st.markdown(
+        """
+        <style>
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .legend-color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%; /* For circles */
+            margin-right: 8px;
+            border: 1px solid #333; /* A slight border for contrast */
+        }
+        .legend-shape-square {
+            width: 20px;
+            height: 20px;
+            background-color: var(--color);
+            margin-right: 8px;
+            border: 1px solid #333;
+        }
+        .legend-shape-diamond {
+            width: 20px;
+            height: 20px;
+            background-color: var(--color);
+            margin-right: 8px;
+            transform: rotate(45deg);
+            border: 1px solid #333;
+        }
+        .legend-shape-star {
+            width: 20px;
+            height: 20px;
+            background-color: var(--color);
+            margin-right: 8px;
+            clip-path: polygon(
+                50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%,
+                50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%
+            );
+            border: 1px solid #333;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    node_colors_legend = {
+        'carrier': '#ADD8E6', # Light Blue
+        'broker': '#90EE90',  # Light Green
+        'entity': '#FFD700',  # Gold
+        'owner': '#FFB6C1'    # Light Pink
+    }
 
-        # Use sets to keep track of added nodes to avoid duplicates
+    col_legend1, col_legend2, col_legend3, col_legend4 = st.columns(4)
+    with col_legend1:
+        st.markdown(
+            f"<div class='legend-item'><div class='legend-color-box' style='background-color:{node_colors_legend['carrier']}'></div> Carrier</div>",
+            unsafe_allow_html=True
+        )
+    with col_legend2:
+        st.markdown(
+            f"<div class='legend-item'><div class='legend-shape-square' style='background-color:{node_colors_legend['broker']}'></div> Broker</div>",
+            unsafe_allow_html=True
+        )
+    with col_legend3:
+        st.markdown(
+            f"<div class='legend-item'><div class='legend-shape-diamond' style='background-color:{node_colors_legend['entity']}'></div> Broker Entity</div>",
+            unsafe_allow_html=True
+        )
+    with col_legend4:
+        st.markdown(
+            f"<div class='legend-item'><div class='legend-shape-star' style='background-color:{node_colors_legend['owner']}'></div> Relationship Owner</div>",
+            unsafe_allow_html=True
+        )
+    st.markdown("---")
+
+    # --- Determine data source for network graph based on selected_carriers ---
+    if selected_carriers:
+        network_source_data = {
+            carrier: info for carrier, info in filtered_carrier_data_for_viz.items()
+            if carrier in selected_carriers
+        }
+    else:
+        network_source_data = filtered_carrier_data_for_viz
+
+    if not network_source_data:
+        if selected_carriers:
+            st.info("No data available for the selected carriers after applying global filters.")
+        else:
+            st.info("Upload data and apply filters to see the network visualization.")
+    else:
+        net = Network(height="750px", width="100%", directed=False, notebook=True)
+        net.toggle_physics(True)
+
         added_nodes = set()
 
-        # Define node properties
         node_colors = {
             'carrier': '#ADD8E6', # Light Blue
             'broker': '#90EE90',  # Light Green
@@ -551,45 +626,35 @@ if uploaded_file is not None:
             'owner': 'star'
         }
 
-        # Add nodes and edges based on filtered data
-        for carrier, info in filtered_carrier_data_for_viz.items():
-            # Add Carrier Node
+        for carrier, info in network_source_data.items(): # Use network_source_data here
             if carrier not in added_nodes:
                 net.add_node(carrier, label=carrier, color=node_colors['carrier'], shape=node_shapes['carrier'], title=f"Carrier: {carrier}")
                 added_nodes.add(carrier)
 
-            # Add Brokers To and edges
             for broker_to in info['Brokers to']:
                 if broker_to not in added_nodes:
                     net.add_node(broker_to, label=broker_to, color=node_colors['broker'], shape=node_shapes['broker'], title=f"Broker (To): {broker_to}")
                     added_nodes.add(broker_to)
-                net.add_edge(carrier, broker_to, title="Brokers to", color="#007BFF") # Blue edge
+                net.add_edge(carrier, broker_to, title="Brokers to", color="#007BFF")
 
-            # Add Brokers Through and edges
             for broker_through in info['Brokers through']:
                 if broker_through not in added_nodes:
                     net.add_node(broker_through, label=broker_through, color=node_colors['broker'], shape=node_shapes['broker'], title=f"Broker (Through): {broker_through}")
                     added_nodes.add(broker_through)
-                net.add_edge(carrier, broker_through, title="Brokers through", color="#28A745") # Green edge
+                net.add_edge(carrier, broker_through, title="Brokers through", color="#28A745")
 
-            # Add Broker Entities and edges
             for entity in info['broker entity of']:
                 if entity not in added_nodes:
                     net.add_node(entity, label=entity, color=node_colors['entity'], shape=node_shapes['entity'], title=f"Broker Entity: {entity}")
                     added_nodes.add(entity)
-                net.add_edge(carrier, entity, title="Broker entity of", color="#FFC107") # Yellow/Orange edge
+                net.add_edge(carrier, entity, title="Broker entity of", color="#FFC107")
 
-            # Add Relationship Owners and edges
             for owner in info['relationship owner']:
                 if owner not in added_nodes:
                     net.add_node(owner, label=owner, color=node_colors['owner'], shape=node_shapes['owner'], title=f"Relationship Owner: {owner}")
                     added_nodes.add(owner)
-                net.add_edge(carrier, owner, title="Relationship owner", color="#DC3545") # Red edge
+                net.add_edge(carrier, owner, title="Relationship owner", color="#DC3545")
 
-        # Save the network to an HTML file in a temporary buffer
-        # Using a BytesIO object to avoid writing to disk directly if not needed,
-        # but pyvis needs a filename. So we'll use a temp file or the default behavior.
-        # For Streamlit Cloud, saving to /tmp is common.
         try:
             path = "/tmp/pyvis_graph.html"
             net.save_graph(path)
