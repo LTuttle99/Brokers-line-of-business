@@ -384,7 +384,7 @@ if uploaded_file is not None:
                     col_ind3, col_ind4 = st.columns(2)
 
                     with col_ind1:
-                        st.markdown("**Brokers To:**")
+                        st.markdown("**👉 Brokers To:**") # Added emoji
                         if info['Brokers to']:
                             for broker in info['Brokers to']:
                                 st.markdown(f"- {broker}")
@@ -392,7 +392,7 @@ if uploaded_file is not None:
                             st.markdown("*(None)*")
 
                     with col_ind2:
-                        st.markdown("**Brokers Through:**")
+                        st.markdown("**🤝 Brokers Through:**") # Added emoji
                         if info['Brokers through']:
                             for broker in info['Brokers through']:
                                 st.markdown(f"- {broker}")
@@ -400,7 +400,7 @@ if uploaded_file is not None:
                             st.markdown("*(None)*")
                     
                     with col_ind3:
-                        st.markdown("**Broker Entity Of:**")
+                        st.markdown("**🏢 Broker Entity Of:**") # Added emoji
                         if info['broker entity of']:
                             for entity in info['broker entity of']:
                                 st.markdown(f"- {entity}")
@@ -408,7 +408,7 @@ if uploaded_file is not None:
                             st.markdown("*(None)*")
 
                     with col_ind4:
-                        st.markdown("**Relationship Owner:**")
+                        st.markdown("**👤 Relationship Owner:**") # Added emoji
                         if info['relationship owner']:
                             for owner in info['relationship owner']:
                                 st.markdown(f"- {owner}")
