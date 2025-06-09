@@ -5,15 +5,24 @@ import io
 # --- SET UP STREAMLIT PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="Carrier Relationship Viewer",
-    layout="wide",
+    layout="wide", # Use 'wide' layout for more space
     initial_sidebar_state="expanded"
+    # To add custom themes, create a .streamlit/config.toml file in your project root
+    # with content like:
+    # [theme]
+    # primaryColor="#FF4B4B"
+    # backgroundColor="#FFFFFF"
+    # secondaryBackgroundColor="#F0F2F6"
+    # textColor="#303030"
+    # font="sans serif"
 )
 
 st.title("🔍 Carrier Relationship Viewer")
+st.markdown("---") # Add a separator for visual appeal
 st.write("Upload your Excel/CSV file to explore broker relationships for each carrier.")
 
 # --- FILE UPLOADER ---
-st.sidebar.header("Upload Data File")
+st.sidebar.header("📂 Upload Data File")
 uploaded_file = st.sidebar.file_uploader(
     "Choose your Carrier Relationships file",
     type=["xlsx", "csv"]
@@ -53,7 +62,9 @@ if uploaded_file is not None:
     # Check if all expected columns are present
     if not all(col in df.columns for col in expected_columns):
         missing_cols = [col for col in expected_columns if col not in df.columns]
-        st.error(f"Missing required columns in the uploaded file: {', '.join(missing_cols)}")
+        st.error(f"Missing required columns in the uploaded file: **{', '.join(missing_cols)}**")
+        st.write("Please ensure your file has the following exact column headers:")
+        st.code(", ".join(expected_columns))
         st.stop()
 
     # Create a dictionary to store all relationships for quick lookup
@@ -67,12 +78,16 @@ if uploaded_file is not None:
         # Ensure carrier is a valid string, not empty after stripping
         if not carrier:
             carrier = "Unnamed Carrier"
+            
+        # Skip row if carrier is still 'Unnamed Carrier' and there's no useful data
+        if carrier == "Unnamed Carrier" and all(pd.isna(row[col]) or not str(row[col]).strip() for col in expected_columns[1:]):
+            continue
 
         # Initialize carrier entry if it doesn't exist
         if carrier not in carrier_data:
             carrier_data[carrier] = {
-                'Brokers to': set(),      # Use set to avoid duplicates and preserve uniqueness
-                'Brokers through': set(), # Use set to avoid duplicates
+                'Brokers to': set(),
+                'Brokers through': set(),
                 'broker entity of': set(),
                 'relationship owner': set()
             }
@@ -110,54 +125,59 @@ if uploaded_file is not None:
     # --- CARRIER SELECTION ---
     st.header("Select a Carrier")
     selected_carrier = st.selectbox(
-        "Choose a Carrier to view its associated brokers and details:",
-        options=["Select a Carrier"] + unique_carriers,
-        index=0 # Default to the "Select a Carrier" option
+        "✨ Choose a Carrier to view its associated brokers and details:",
+        options=["--- Select a Carrier ---"] + unique_carriers, # Improved default option
+        index=0
     )
+    st.markdown("---")
 
     # --- DISPLAY RESULTS ---
-    if selected_carrier != "Select a Carrier":
-        st.subheader(f"Details for {selected_carrier}:")
+    if selected_carrier != "--- Select a Carrier ---":
+        st.subheader(f"📊 Details for **{selected_carrier}**:")
         if selected_carrier in carrier_data:
             carrier_info = carrier_data[selected_carrier]
 
-            # Display "Brokers to"
-            st.markdown("#### Brokers To:")
-            if carrier_info['Brokers to']:
-                for broker in carrier_info['Brokers to']:
-                    st.markdown(f"- {broker}")
-            else:
-                st.info("No 'Brokers to' information found for this carrier.")
+            # Use columns for better layout
+            col1, col2 = st.columns(2)
+            col3, col4 = st.columns(2) # New columns for the last two fields
 
-            # Display "Brokers through"
-            st.markdown("#### Brokers Through:")
-            if carrier_info['Brokers through']:
-                for broker in carrier_info['Brokers through']:
-                    st.markdown(f"- {broker}")
-            else:
-                st.info("No 'Brokers through' information found for this carrier.")
+            with col1:
+                st.markdown("#### 👉 Brokers To:")
+                if carrier_info['Brokers to']:
+                    for broker in carrier_info['Brokers to']:
+                        st.markdown(f"- **{broker}**")
+                else:
+                    st.info("No 'Brokers to' information found for this carrier.")
 
-            # Display "broker entity of"
-            st.markdown("#### Broker Entity Of:")
-            if carrier_info['broker entity of']:
-                for entity in carrier_info['broker entity of']:
-                    st.markdown(f"- {entity}")
-            else:
-                st.info("No 'broker entity of' information found for this carrier.")
+            with col2:
+                st.markdown("#### 🤝 Brokers Through:")
+                if carrier_info['Brokers through']:
+                    for broker in carrier_info['Brokers through']:
+                        st.markdown(f"- **{broker}**")
+                else:
+                    st.info("No 'Brokers through' information found for this carrier.")
 
-            # Display "relationship owner"
-            st.markdown("#### Relationship Owner:")
-            if carrier_info['relationship owner']:
-                for owner in carrier_info['relationship owner']:
-                    st.markdown(f"- {owner}")
-            else:
-                st.info("No 'relationship owner' information found for this carrier.")
+            with col3:
+                st.markdown("#### 🏢 Broker Entity Of:")
+                if carrier_info['broker entity of']:
+                    for entity in carrier_info['broker entity of']:
+                        st.markdown(f"- **{entity}**")
+                else:
+                    st.info("No 'broker entity of' information found for this carrier.")
+
+            with col4:
+                st.markdown("#### 👤 Relationship Owner:")
+                if carrier_info['relationship owner']:
+                    for owner in carrier_info['relationship owner']:
+                        st.markdown(f"- **{owner}**")
+                else:
+                    st.info("No 'relationship owner' information found for this carrier.")
 
         else:
-            st.warning(f"Data for '{selected_carrier}' not found after processing. Please check your file.")
+            st.warning(f"Data for '**{selected_carrier}**' not found after processing. Please check your file data.")
     else:
-        st.info("Please select a carrier from the dropdown above to view their details.")
+        st.info("⬆️ Please upload your file and select a carrier from the dropdown above to view their details.")
 
 # --- Initial Message when no file is uploaded ---
 else:
-    st.info("Please upload your Carrier Relationships file (CSV or Excel) in the sidebar to begin analysis.")
+    st.info("⬆️ Please upload your Carrier Relationships file (CSV or Excel) in the sidebar to begin analysis.")
