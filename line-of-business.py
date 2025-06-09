@@ -51,7 +51,7 @@ with st.sidebar.expander("ℹ️ About this App"):
     st.write("---") # Separator within the expander
     st.write("Developed with Streamlit.")
 
-# --- IN-APP SAMPLE FILE DOWNLOAD ---
+# --- IN-APP SAMPLE FILE DOWNLOAD (Only in sidebar) ---
 st.sidebar.header("📝 Sample File")
 sample_data = {
     'Carrier': ['Carrier A', 'Carrier B', 'Carrier C', 'Carrier D', 'Carrier E'],
@@ -68,7 +68,8 @@ st.sidebar.download_button(
     data=csv_sample,
     file_name='Sample Carrier Relationships.csv',
     mime='text/csv',
-    help="Download a sample CSV file with the correct column headers."
+    help="Download a sample CSV file with the correct column headers.",
+    key="sample_download_sidebar" # Unique key for the sample download button
 )
 
 # --- Caching Data Loading and Processing ---
@@ -170,19 +171,23 @@ if uploaded_file is not None:
     st.sidebar.header("⚙️ Global Filters")
     selected_filter_brokers_to = st.sidebar.multiselect(
         "Filter by 'Brokers to'",
-        options=sorted(list(all_brokers_to))
+        options=sorted(list(all_brokers_to)),
+        key="filter_brokers_to" # Unique key
     )
     selected_filter_brokers_through = st.sidebar.multiselect(
         "Filter by 'Brokers through'",
-        options=sorted(list(all_brokers_through))
+        options=sorted(list(all_brokers_through)),
+        key="filter_brokers_through" # Unique key
     )
     selected_filter_broker_entity = st.sidebar.multiselect(
         "Filter by 'broker entity of'",
-        options=sorted(list(all_broker_entities))
+        options=sorted(list(all_broker_entities)),
+        key="filter_broker_entity" # Unique key
     )
     selected_filter_relationship_owner = st.sidebar.multiselect(
         "Filter by 'relationship owner'",
-        options=sorted(list(all_relationship_owners))
+        options=sorted(list(all_relationship_owners)),
+        key="filter_relationship_owner" # Unique key
     )
 
     # Apply global filters to narrow down the list of carriers for selection
@@ -226,11 +231,12 @@ if uploaded_file is not None:
         st.metric(label="Unique Relationship Owners", value=len(all_relationship_owners))
     st.markdown("---")
 
+
     # --- CARRIER SEARCH AND SELECTION ---
     st.header("Select Carrier(s) for Details")
     
     # Search bar
-    search_query = st.text_input("Type to search for a Carrier:", "").strip()
+    search_query = st.text_input("Type to search for a Carrier:", "", key="carrier_search_input").strip()
 
     # Filter carriers based on search query AND global filters
     search_filtered_carriers = [
@@ -246,7 +252,8 @@ if uploaded_file is not None:
         selected_carriers = st.multiselect(
             "✨ Choose one or more Carriers from the filtered list:",
             options=search_filtered_carriers,
-            default=[] # No default selected
+            default=[], # No default selected
+            key="carrier_multiselect" # Unique key
         )
     st.markdown("---")
 
@@ -326,10 +333,10 @@ if uploaded_file is not None:
             st.markdown("---")
 
         # --- Display Individual Carrier Details ---
-        if selected_carriers:
+        if selected_carriers: # Check again in case a warning message above caused selection to clear
             st.markdown("### Individual Carrier Details:")
             for carrier_idx, carrier in enumerate(selected_carriers):
-                if carrier in carrier_data:
+                if carrier in carrier_data: # Ensure carrier exists in processed data
                     st.markdown(f"##### Details for **{carrier}**:")
                     info = carrier_data[carrier]
 
@@ -374,19 +381,21 @@ if uploaded_file is not None:
 
 
         # --- DOWNLOAD BUTTON ---
-        download_df = pd.DataFrame(download_rows)
-        csv_string = download_df.to_csv(index=False).encode('utf-8')
-        
-        st.download_button(
-            label=f"⬇️ Download Details for Selected Carriers ({len(selected_carriers)})",
-            data=csv_string,
-            file_name=f"selected_carriers_relationships.csv",
-            mime="text/csv",
-            help="Download the displayed information for the selected carriers as a CSV file."
-        )
+        if download_rows: # Only show download button if there are valid rows to download
+            download_df = pd.DataFrame(download_rows)
+            csv_string = download_df.to_csv(index=False).encode('utf-8')
+            
+            st.download_button(
+                label=f"⬇️ Download Details for Selected Carriers ({len(selected_carriers)})",
+                data=csv_string,
+                file_name=f"selected_carriers_relationships.csv",
+                mime="text/csv",
+                help="Download the displayed information for the selected carriers as a CSV file.",
+                key="selected_carriers_download" # Unique key for this button
+            )
 
-    else:
-        st.info("⬆️ Please upload your file and select one or more carriers from the dropdown above to view their details.")
+    else: # Message if no carriers are selected in the multi-select
+        st.info("⬆️ Please select one or more carriers from the dropdown above to view their details.")
 
     # --- VISUALIZATIONS ---
     st.markdown("---")
@@ -449,21 +458,4 @@ else:
     st.info("⬆️ Please upload your Carrier Relationships file (CSV or Excel) in the sidebar to begin analysis.")
     st.markdown("---")
     st.markdown("### Or, download a sample file to get started:")
-    # This section is duplicated from sidebar to be visible when no file is uploaded
-    sample_data_download = {
-        'Carrier': ['Carrier A', 'Carrier B', 'Carrier C', 'Carrier D', 'Carrier E'],
-        'Brokers to': ['Broker Alpha, Broker Beta', 'Broker Gamma', 'Broker Delta', '', 'Broker Zeta'],
-        'Brokers through': ['Broker 123', 'Broker 456, Broker 789', 'Broker 010', 'Broker 111', ''],
-        'broker entity of': ['Entity X', 'Entity Y', 'Entity Z', 'Entity X', 'Entity Y'],
-        'relationship owner': ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Brown', 'John Doe']
-    }
-    sample_df_download = pd.DataFrame(sample_data_download)
-    csv_sample_download = sample_df_download.to_csv(index=False).encode('utf-8')
-
-    st.download_button(
-        label="⬇️ Download Sample Data File",
-        data=csv_sample_download,
-        file_name='Sample Carrier Relationships.csv',
-        mime='text/csv',
-        help="Download a sample CSV file with the correct column headers."
-    )
+   
