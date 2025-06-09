@@ -516,7 +516,6 @@ if uploaded_file is not None:
 
     # --- Legend for Network Graph ---
     st.markdown("### Network Legend:")
-    # Using markdown with colored spans for better visibility
     st.markdown(
         """
         <style>
@@ -535,14 +534,23 @@ if uploaded_file is not None:
         .legend-shape-square {
             width: 20px;
             height: 20px;
-            background-color: var(--color);
             margin-right: 8px;
             border: 1px solid #333;
+        }
+        .legend-shape-triangle {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 20px solid var(--color); /* Triangle pointing up */
+            margin-right: 8px;
+            border-top: 1px solid #333; /* For contrast */
+            border-left: 1px solid #333;
+            border-right: 1px solid #333;
         }
         .legend-shape-diamond {
             width: 20px;
             height: 20px;
-            background-color: var(--color);
             margin-right: 8px;
             transform: rotate(45deg);
             border: 1px solid #333;
@@ -550,7 +558,6 @@ if uploaded_file is not None:
         .legend-shape-star {
             width: 20px;
             height: 20px;
-            background-color: var(--color);
             margin-right: 8px;
             clip-path: polygon(
                 50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%,
@@ -563,32 +570,47 @@ if uploaded_file is not None:
         unsafe_allow_html=True
     )
     
-    node_colors_legend = {
+    # Updated node colors and shapes for better distinction
+    node_colors = {
         'carrier': '#ADD8E6', # Light Blue
-        'broker': '#90EE90',  # Light Green
+        'broker_to': '#66CDAA',  # Medium Aquamarine
+        'broker_through': '#FF8C00', # Dark Orange
         'entity': '#FFD700',  # Gold
         'owner': '#FFB6C1'    # Light Pink
     }
+    node_shapes = {
+        'carrier': 'dot',
+        'broker_to': 'square',
+        'broker_through': 'triangle',
+        'entity': 'diamond',
+        'owner': 'star'
+    }
 
-    col_legend1, col_legend2, col_legend3, col_legend4 = st.columns(4)
+
+    col_legend1, col_legend2, col_legend3, col_legend4, col_legend5 = st.columns(5)
     with col_legend1:
         st.markdown(
-            f"<div class='legend-item'><div class='legend-color-box' style='background-color:{node_colors_legend['carrier']}'></div> Carrier</div>",
+            f"<div class='legend-item'><div class='legend-color-box' style='background-color:{node_colors['carrier']}'></div> Carrier</div>",
             unsafe_allow_html=True
         )
     with col_legend2:
         st.markdown(
-            f"<div class='legend-item'><div class='legend-shape-square' style='background-color:{node_colors_legend['broker']}'></div> Broker</div>",
+            f"<div class='legend-item'><div class='legend-shape-square' style='background-color:{node_colors['broker_to']}'></div> Broker (To)</div>",
             unsafe_allow_html=True
         )
     with col_legend3:
         st.markdown(
-            f"<div class='legend-item'><div class='legend-shape-diamond' style='background-color:{node_colors_legend['entity']}'></div> Broker Entity</div>",
+            f"<div class='legend-item'><div class='legend-shape-triangle' style='background-color:{node_colors['broker_through']}'></div> Broker (Through)</div>",
             unsafe_allow_html=True
         )
     with col_legend4:
         st.markdown(
-            f"<div class='legend-item'><div class='legend-shape-star' style='background-color:{node_colors_legend['owner']}'></div> Relationship Owner</div>",
+            f"<div class='legend-item'><div class='legend-shape-diamond' style='background-color:{node_colors['entity']}'></div> Broker Entity</div>",
+            unsafe_allow_html=True
+        )
+    with col_legend5:
+        st.markdown(
+            f"<div class='legend-item'><div class='legend-shape-star' style='background-color:{node_colors['owner']}'></div> Relationship Owner</div>",
             unsafe_allow_html=True
         )
     st.markdown("---")
@@ -610,6 +632,59 @@ if uploaded_file is not None:
     else:
         net = Network(height="750px", width="100%", directed=False, notebook=True)
         net.toggle_physics(True)
+
+        added_nodes = set()
+
+        # Add nodes and edges based on filtered data
+        for carrier, info in network_source_data.items():
+            if carrier not in added_nodes:
+                net.add_node(carrier, label=carrier, color=node_colors['carrier'], shape=node_shapes['carrier'], title=f"Carrier: {carrier}")
+                added_nodes.add(carrier)
+
+            # Add Brokers To with distinct properties
+            for broker_to in info['Brokers to']:
+                if broker_to not in added_nodes:
+                    net.add_node(broker_to, label=broker_to, color=node_colors['broker_to'], shape=node_shapes['broker_to'], title=f"Broker (To): {broker_to}")
+                    added_nodes.add(broker_to)
+                net.add_edge(carrier, broker_to, title="Brokers to", color="#007BFF") # Blue edge
+
+            # Add Brokers Through with distinct properties
+            for broker_through in info['Brokers through']:
+                if broker_through not in added_nodes:
+                    net.add_node(broker_through, label=broker_through, color=node_colors['broker_through'], shape=node_shapes['broker_through'], title=f"Broker (Through): {broker_through}")
+                    added_nodes.add(broker_through)
+                net.add_edge(carrier, broker_through, title="Brokers through", color="#28A745") # Green edge
+
+            # Add Broker Entities
+            for entity in info['broker entity of']:
+                if entity not in added_nodes:
+                    net.add_node(entity, label=entity, color=node_colors['entity'], shape=node_shapes['entity'], title=f"Broker Entity: {entity}")
+                    added_nodes.add(entity)
+                net.add_edge(carrier, entity, title="Broker entity of", color="#FFC107") # Yellow/Orange edge
+
+            # Add Relationship Owners
+            for owner in info['relationship owner']:
+                if owner not in added_nodes:
+                    net.add_node(owner, label=owner, color=node_colors['owner'], shape=node_shapes['owner'], title=f"Relationship Owner: {owner}")
+                    added_nodes.add(owner)
+                net.add_edge(carrier, owner, title="Relationship owner", color="#DC3545") # Red edge
+
+        try:
+            path = "/tmp/pyvis_graph.html"
+            net.save_graph(path)
+            with open(path, 'r', encoding='utf-8') as html_file:
+                html_content = html_file.read()
+            components.html(html_content, height=750)
+        except Exception as e:
+            st.error(f"Could not generate network graph: {e}. Ensure pyvis is installed and accessible.")
+            st.info("If running locally, try: `pip install pyvis`")
+            st.info("If on Streamlit Cloud, add `pyvis` to your `requirements.txt`.")
+
+
+# --- Initial Message when no file is uploaded ---
+else:
+    st.info("⬆️ Please upload your Carrier Relationships file (CSV or Excel) in the sidebar to begin analysis.")
+    st.markdown("---")
 
         added_nodes = set()
 
