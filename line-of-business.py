@@ -2,7 +2,9 @@ import streamlit as st
 import pandas as pd
 import io
 import plotly.express as px
-import plotly.io as pio # Added for image export
+import plotly.io as pio
+from pyvis.network import Network # Added for network visualization
+import streamlit.components.v1 as components # Added for embedding HTML
 
 # --- SET UP STREAMLIT PAGE CONFIGURATION ---
 st.set_page_config(
@@ -184,7 +186,6 @@ if uploaded_file is not None:
         st.session_state.filter_broker_entity_val = []
         st.session_state.filter_relationship_owner_val = []
         st.session_state.carrier_search_input_val = ""
-        # Optionally, clear selected carriers too if desired, or keep them
         st.session_state.carrier_multiselect_val = [] 
         st.rerun() # Rerun to apply cleared filters
 
@@ -521,6 +522,84 @@ if uploaded_file is not None:
         )
     else:
         st.info("No 'Relationship Owner' data available for visualization with current filters.")
+
+    st.markdown("---")
+    st.markdown("## 🕸️ Interactive Network Visualization")
+
+    if not filtered_carrier_data_for_viz:
+        st.info("Upload data and apply filters to see the network visualization.")
+    else:
+        # Create a Pyvis Network object
+        # Setting directed=True as relationships might be directional (e.g., 'Brokers to')
+        net = Network(height="750px", width="100%", directed=False, notebook=True)
+        net.toggle_physics(True) # Enable physics for node repulsion/attraction
+
+        # Use sets to keep track of added nodes to avoid duplicates
+        added_nodes = set()
+
+        # Define node properties
+        node_colors = {
+            'carrier': '#ADD8E6', # Light Blue
+            'broker': '#90EE90',  # Light Green
+            'entity': '#FFD700',  # Gold
+            'owner': '#FFB6C1'    # Light Pink
+        }
+        node_shapes = {
+            'carrier': 'dot',
+            'broker': 'square',
+            'entity': 'diamond',
+            'owner': 'star'
+        }
+
+        # Add nodes and edges based on filtered data
+        for carrier, info in filtered_carrier_data_for_viz.items():
+            # Add Carrier Node
+            if carrier not in added_nodes:
+                net.add_node(carrier, label=carrier, color=node_colors['carrier'], shape=node_shapes['carrier'], title=f"Carrier: {carrier}")
+                added_nodes.add(carrier)
+
+            # Add Brokers To and edges
+            for broker_to in info['Brokers to']:
+                if broker_to not in added_nodes:
+                    net.add_node(broker_to, label=broker_to, color=node_colors['broker'], shape=node_shapes['broker'], title=f"Broker (To): {broker_to}")
+                    added_nodes.add(broker_to)
+                net.add_edge(carrier, broker_to, title="Brokers to", color="#007BFF") # Blue edge
+
+            # Add Brokers Through and edges
+            for broker_through in info['Brokers through']:
+                if broker_through not in added_nodes:
+                    net.add_node(broker_through, label=broker_through, color=node_colors['broker'], shape=node_shapes['broker'], title=f"Broker (Through): {broker_through}")
+                    added_nodes.add(broker_through)
+                net.add_edge(carrier, broker_through, title="Brokers through", color="#28A745") # Green edge
+
+            # Add Broker Entities and edges
+            for entity in info['broker entity of']:
+                if entity not in added_nodes:
+                    net.add_node(entity, label=entity, color=node_colors['entity'], shape=node_shapes['entity'], title=f"Broker Entity: {entity}")
+                    added_nodes.add(entity)
+                net.add_edge(carrier, entity, title="Broker entity of", color="#FFC107") # Yellow/Orange edge
+
+            # Add Relationship Owners and edges
+            for owner in info['relationship owner']:
+                if owner not in added_nodes:
+                    net.add_node(owner, label=owner, color=node_colors['owner'], shape=node_shapes['owner'], title=f"Relationship Owner: {owner}")
+                    added_nodes.add(owner)
+                net.add_edge(carrier, owner, title="Relationship owner", color="#DC3545") # Red edge
+
+        # Save the network to an HTML file in a temporary buffer
+        # Using a BytesIO object to avoid writing to disk directly if not needed,
+        # but pyvis needs a filename. So we'll use a temp file or the default behavior.
+        # For Streamlit Cloud, saving to /tmp is common.
+        try:
+            path = "/tmp/pyvis_graph.html"
+            net.save_graph(path)
+            with open(path, 'r', encoding='utf-8') as html_file:
+                html_content = html_file.read()
+            components.html(html_content, height=750)
+        except Exception as e:
+            st.error(f"Could not generate network graph: {e}. Ensure pyvis is installed and accessible.")
+            st.info("If running locally, try: `pip install pyvis`")
+            st.info("If on Streamlit Cloud, add `pyvis` to your `requirements.txt`.")
 
 
 # --- Initial Message when no file is uploaded ---
