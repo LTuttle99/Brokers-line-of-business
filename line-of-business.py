@@ -544,9 +544,10 @@ if uploaded_file is not None:
             border-right: 10px solid transparent;
             border-bottom: 20px solid var(--color); /* Triangle pointing up */
             margin-right: 8px;
-            border-top: 1px solid #333; /* For contrast */
-            border-left: 1px solid #333;
-            border-right: 1px solid #333;
+            /* The borders below were causing issues with coloring the triangle via CSS variable */
+            /* border-top: 1px solid #333; */
+            /* border-left: 1px solid #333; */
+            /* border-right: 1px solid #333; */
         }
         .legend-shape-diamond {
             width: 20px;
@@ -599,8 +600,9 @@ if uploaded_file is not None:
             unsafe_allow_html=True
         )
     with col_legend3:
+        # Correctly pass the color as a CSS variable for the triangle
         st.markdown(
-            f"<div class='legend-item'><div class='legend-shape-triangle' style='background-color:{node_colors['broker_through']}'></div> Broker (Through)</div>",
+            f"<div class='legend-item'><div class='legend-shape-triangle' style='--color:{node_colors['broker_through']}'></div> Broker (Through)</div>",
             unsafe_allow_html=True
         )
     with col_legend4:
