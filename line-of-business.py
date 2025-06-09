@@ -196,7 +196,8 @@ if uploaded_file is not None:
         include_carrier = True
         info = carrier_data[carrier]
 
-        if selected_filter_brokers_to:
+        if selected_filter_brokers_to: # If user selected anything for this filter
+            # If NONE of the carrier's 'Brokers to' are in the selected_filter_brokers_to, then exclude carrier
             if not any(b in selected_filter_brokers_to for b in info['Brokers to']):
                 include_carrier = False
         if selected_filter_brokers_through:
@@ -244,7 +245,14 @@ if uploaded_file is not None:
         if search_query.lower() in carrier.lower()
     ]
     
-    if not search_filtered_carriers and search_query:
+    # --- Feedback on filter results ---
+    if search_query or any([selected_filter_brokers_to, selected_filter_brokers_through, selected_filter_broker_entity, selected_filter_relationship_owner]):
+        st.info(f"Found **{len(search_filtered_carriers)}** carriers matching your search and filters.")
+        if not search_filtered_carriers:
+            st.warning("Adjust filters or search query to find more carriers.")
+
+
+    if not search_filtered_carriers and search_query: # This condition might overlap with the warning above but is more specific for no search results
         st.warning(f"No carriers found matching '{search_query}' with current filters.")
         selected_carriers = [] # No carriers selected if no match
     else:
@@ -457,5 +465,3 @@ if uploaded_file is not None:
 else:
     st.info("⬆️ Please upload your Carrier Relationships file (CSV or Excel) in the sidebar to begin analysis.")
     st.markdown("---")
-    st.markdown("### Or, download a sample file to get started:")
-   
