@@ -2,20 +2,13 @@ import streamlit as st
 import pandas as pd
 import io
 import plotly.express as px
+import plotly.io as pio # Added for image export
 
 # --- SET UP STREAMLIT PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="Carrier Relationship Viewer",
     layout="wide", # Use 'wide' layout for more space
     initial_sidebar_state="expanded"
-    # To add custom themes, create a .streamlit/config.toml file in your project root
-    # with content like:
-    # [theme]
-    # primaryColor="#FF4B4B"
-    # backgroundColor="#FFFFFF"
-    # secondaryBackgroundColor="#F0F2F6"
-    # textColor="#303030"
-    # font="sans serif"
 )
 
 st.title("🔍 Carrier Relationship Viewer")
@@ -169,25 +162,57 @@ if uploaded_file is not None:
 
     # --- GLOBAL FILTERS ---
     st.sidebar.header("⚙️ Global Filters")
+
+    # Initialize session state for filters if not already present
+    if "filter_brokers_to_val" not in st.session_state:
+        st.session_state.filter_brokers_to_val = []
+    if "filter_brokers_through_val" not in st.session_state:
+        st.session_state.filter_brokers_through_val = []
+    if "filter_broker_entity_val" not in st.session_state:
+        st.session_state.filter_broker_entity_val = []
+    if "filter_relationship_owner_val" not in st.session_state:
+        st.session_state.filter_relationship_owner_val = []
+    if "carrier_search_input_val" not in st.session_state:
+        st.session_state.carrier_search_input_val = ""
+    if "carrier_multiselect_val" not in st.session_state:
+        st.session_state.carrier_multiselect_val = [] # Keep selected carriers when clearing filters
+
+    # Clear All Filters Button
+    def clear_filters():
+        st.session_state.filter_brokers_to_val = []
+        st.session_state.filter_brokers_through_val = []
+        st.session_state.filter_broker_entity_val = []
+        st.session_state.filter_relationship_owner_val = []
+        st.session_state.carrier_search_input_val = ""
+        # Optionally, clear selected carriers too if desired, or keep them
+        st.session_state.carrier_multiselect_val = [] 
+        st.rerun() # Rerun to apply cleared filters
+
+    st.sidebar.button("🗑️ Clear All Filters", on_click=clear_filters)
+
     selected_filter_brokers_to = st.sidebar.multiselect(
         "Filter by 'Brokers to'",
         options=sorted(list(all_brokers_to)),
-        key="filter_brokers_to" # Unique key
+        key="filter_brokers_to_val", # Use session state key here
+        default=st.session_state.filter_brokers_to_val
     )
     selected_filter_brokers_through = st.sidebar.multiselect(
         "Filter by 'Brokers through'",
         options=sorted(list(all_brokers_through)),
-        key="filter_brokers_through" # Unique key
+        key="filter_brokers_through_val", # Use session state key here
+        default=st.session_state.filter_brokers_through_val
     )
     selected_filter_broker_entity = st.sidebar.multiselect(
         "Filter by 'broker entity of'",
         options=sorted(list(all_broker_entities)),
-        key="filter_broker_entity" # Unique key
+        key="filter_broker_entity_val", # Use session state key here
+        default=st.session_state.filter_broker_entity_val
     )
     selected_filter_relationship_owner = st.sidebar.multiselect(
         "Filter by 'relationship owner'",
         options=sorted(list(all_relationship_owners)),
-        key="filter_relationship_owner" # Unique key
+        key="filter_relationship_owner_val", # Use session state key here
+        default=st.session_state.filter_relationship_owner_val
     )
 
     # Apply global filters to narrow down the list of carriers for selection AND visualization
@@ -240,7 +265,11 @@ if uploaded_file is not None:
     st.header("Select Carrier(s) for Details")
     
     # Search bar
-    search_query = st.text_input("Type to search for a Carrier:", "", key="carrier_search_input").strip()
+    search_query = st.text_input(
+        "Type to search for a Carrier:",
+        value=st.session_state.carrier_search_input_val, # Use session state for default value
+        key="carrier_search_input_val" # Use session state key here
+    ).strip()
 
     # Filter carriers based on search query AND global filters (using filtered_unique_carriers_for_selection)
     search_filtered_carriers = [
@@ -263,8 +292,8 @@ if uploaded_file is not None:
         selected_carriers = st.multiselect(
             "✨ Choose one or more Carriers from the filtered list:",
             options=search_filtered_carriers,
-            default=[], # No default selected
-            key="carrier_multiselect" # Unique key
+            default=st.session_state.carrier_multiselect_val if search_query == st.session_state.carrier_search_input_val else [], # Restore default unless search query changes
+            key="carrier_multiselect_val" # Use session state key here
         )
     st.markdown("---")
 
@@ -429,6 +458,15 @@ if uploaded_file is not None:
             height=400
         )
         st.plotly_chart(fig_brokers_to, use_container_width=True)
+        # Export chart button
+        img_bytes_brokers_to = pio.to_image(fig_brokers_to, format='png')
+        st.download_button(
+            label="🖼️ Download 'Brokers To' Chart",
+            data=img_bytes_brokers_to,
+            file_name="brokers_to_chart.png",
+            mime="image/png",
+            key="download_brokers_to_chart"
+        )
     else:
         st.info("No 'Brokers to' data available for visualization with current filters.")
 
@@ -446,6 +484,15 @@ if uploaded_file is not None:
             height=400
         )
         st.plotly_chart(fig_brokers_through, use_container_width=True)
+        # Export chart button
+        img_bytes_brokers_through = pio.to_image(fig_brokers_through, format='png')
+        st.download_button(
+            label="🖼️ Download 'Brokers Through' Chart",
+            data=img_bytes_brokers_through,
+            file_name="brokers_through_chart.png",
+            mime="image/png",
+            key="download_brokers_through_chart"
+        )
     else:
         st.info("No 'Brokers through' data available for visualization with current filters.")
 
@@ -463,6 +510,15 @@ if uploaded_file is not None:
             height=400
         )
         st.plotly_chart(fig_owners, use_container_width=True)
+        # Export chart button
+        img_bytes_owners = pio.to_image(fig_owners, format='png')
+        st.download_button(
+            label="🖼️ Download 'Relationship Owners' Chart",
+            data=img_bytes_owners,
+            file_name="relationship_owners_chart.png",
+            mime="image/png",
+            key="download_owners_chart"
+        )
     else:
         st.info("No 'Relationship Owner' data available for visualization with current filters.")
 
