@@ -190,14 +190,16 @@ if uploaded_file is not None:
         key="filter_relationship_owner" # Unique key
     )
 
-    # Apply global filters to narrow down the list of carriers for selection
+    # Apply global filters to narrow down the list of carriers for selection AND visualization
     filtered_unique_carriers_for_selection = []
+    # Create a dictionary for filtered carrier data, which will be used for both selection and visualizations
+    filtered_carrier_data_for_viz = {}
+
     for carrier in unique_carriers:
         include_carrier = True
         info = carrier_data[carrier]
 
-        if selected_filter_brokers_to: # If user selected anything for this filter
-            # If NONE of the carrier's 'Brokers to' are in the selected_filter_brokers_to, then exclude carrier
+        if selected_filter_brokers_to:
             if not any(b in selected_filter_brokers_to for b in info['Brokers to']):
                 include_carrier = False
         if selected_filter_brokers_through:
@@ -212,6 +214,7 @@ if uploaded_file is not None:
         
         if include_carrier:
             filtered_unique_carriers_for_selection.append(carrier)
+            filtered_carrier_data_for_viz[carrier] = info # Add carrier info to filtered data for viz
     
     # Sort filtered carriers again for good measure
     filtered_unique_carriers_for_selection = sorted(filtered_unique_carriers_for_selection)
@@ -221,15 +224,15 @@ if uploaded_file is not None:
     col_count1, col_count2, col_count3, col_count4, col_count5 = st.columns(5)
 
     with col_count1:
-        st.metric(label="Total Unique Carriers", value=len(unique_carriers))
+        st.metric(label="Total Unique Carriers (Original)", value=len(unique_carriers))
     with col_count2:
-        st.metric(label="Unique 'Brokers to'", value=len(all_brokers_to))
+        st.metric(label="Unique 'Brokers to' (Original)", value=len(all_brokers_to))
     with col_count3:
-        st.metric(label="Unique 'Brokers through'", value=len(all_brokers_through))
+        st.metric(label="Unique 'Brokers through' (Original)", value=len(all_brokers_through))
     with col_count4:
-        st.metric(label="Unique Broker Entities", value=len(all_broker_entities))
+        st.metric(label="Unique Broker Entities (Original)", value=len(all_broker_entities))
     with col_count5:
-        st.metric(label="Unique Relationship Owners", value=len(all_relationship_owners))
+        st.metric(label="Unique Relationship Owners (Original)", value=len(all_relationship_owners))
     st.markdown("---")
 
 
@@ -239,7 +242,7 @@ if uploaded_file is not None:
     # Search bar
     search_query = st.text_input("Type to search for a Carrier:", "", key="carrier_search_input").strip()
 
-    # Filter carriers based on search query AND global filters
+    # Filter carriers based on search query AND global filters (using filtered_unique_carriers_for_selection)
     search_filtered_carriers = [
         carrier for carrier in filtered_unique_carriers_for_selection
         if search_query.lower() in carrier.lower()
@@ -253,8 +256,8 @@ if uploaded_file is not None:
 
 
     if not search_filtered_carriers and search_query: # This condition might overlap with the warning above but is more specific for no search results
-        st.warning(f"No carriers found matching '{search_query}' with current filters.")
-        selected_carriers = [] # No carriers selected if no match
+        # Only set selected_carriers to empty if search_query is active AND no results
+        selected_carriers = [] 
     else:
         # Multi-select for carriers
         selected_carriers = st.multiselect(
@@ -341,7 +344,7 @@ if uploaded_file is not None:
             st.markdown("---")
 
         # --- Display Individual Carrier Details ---
-        if selected_carriers: # Check again in case a warning message above caused selection to clear
+        if selected_carriers: # Ensure there are carriers to display individual details for
             st.markdown("### Individual Carrier Details:")
             for carrier_idx, carrier in enumerate(selected_carriers):
                 if carrier in carrier_data: # Ensure carrier exists in processed data
@@ -405,12 +408,15 @@ if uploaded_file is not None:
     else: # Message if no carriers are selected in the multi-select
         st.info("⬆️ Please select one or more carriers from the dropdown above to view their details.")
 
-    # --- VISUALIZATIONS ---
+    # --- VISUALIZATIONS (NOW FILTERED) ---
     st.markdown("---")
-    st.markdown("## 📊 Relationship Visualizations")
+    st.markdown("## 📊 Relationship Visualizations (Filtered Data)")
 
+    # Data for visualizations now comes from filtered_carrier_data_for_viz
+    # This ensures charts reflect global filters and search query
+    
     # Bar chart for Top Brokers To
-    brokers_to_counts = pd.Series([b for carrier_info in carrier_data.values() for b in carrier_info['Brokers to']])
+    brokers_to_counts = pd.Series([b for carrier_info in filtered_carrier_data_for_viz.values() for b in carrier_info['Brokers to']])
     if not brokers_to_counts.empty:
         top_brokers_to = brokers_to_counts.value_counts().reset_index()
         top_brokers_to.columns = ['Broker', 'Count']
@@ -418,16 +424,16 @@ if uploaded_file is not None:
             top_brokers_to.head(10), # Show top 10
             x='Broker',
             y='Count',
-            title='Top 10 "Brokers To" by Carrier Associations',
+            title='Top 10 "Brokers To" by Carrier Associations (Filtered)',
             labels={'Broker': 'Broker (To)', 'Count': 'Number of Carriers'},
             height=400
         )
         st.plotly_chart(fig_brokers_to, use_container_width=True)
     else:
-        st.info("No 'Brokers to' data available for visualization.")
+        st.info("No 'Brokers to' data available for visualization with current filters.")
 
     # Bar chart for Top Brokers Through
-    brokers_through_counts = pd.Series([b for carrier_info in carrier_data.values() for b in carrier_info['Brokers through']])
+    brokers_through_counts = pd.Series([b for carrier_info in filtered_carrier_data_for_viz.values() for b in carrier_info['Brokers through']])
     if not brokers_through_counts.empty:
         top_brokers_through = brokers_through_counts.value_counts().reset_index()
         top_brokers_through.columns = ['Broker', 'Count']
@@ -435,16 +441,16 @@ if uploaded_file is not None:
             top_brokers_through.head(10), # Show top 10
             x='Broker',
             y='Count',
-            title='Top 10 "Brokers Through" by Carrier Associations',
+            title='Top 10 "Brokers Through" by Carrier Associations (Filtered)',
             labels={'Broker': 'Broker (Through)', 'Count': 'Number of Carriers'},
             height=400
         )
         st.plotly_chart(fig_brokers_through, use_container_width=True)
     else:
-        st.info("No 'Brokers through' data available for visualization.")
+        st.info("No 'Brokers through' data available for visualization with current filters.")
 
     # Bar chart for Relationship Owners Distribution
-    relationship_owners_counts = pd.Series([o for carrier_info in carrier_data.values() for o in carrier_info['relationship owner']])
+    relationship_owners_counts = pd.Series([o for carrier_info in filtered_carrier_data_for_viz.values() for o in carrier_info['relationship owner']])
     if not relationship_owners_counts.empty:
         owner_distribution = relationship_owners_counts.value_counts().reset_index()
         owner_distribution.columns = ['Owner', 'Count']
@@ -452,13 +458,13 @@ if uploaded_file is not None:
             owner_distribution,
             x='Owner',
             y='Count',
-            title='Distribution of Relationship Owners',
+            title='Distribution of Relationship Owners (Filtered)',
             labels={'Owner': 'Relationship Owner', 'Count': 'Number of Carriers'},
             height=400
         )
         st.plotly_chart(fig_owners, use_container_width=True)
     else:
-        st.info("No 'Relationship Owner' data available for visualization.")
+        st.info("No 'Relationship Owner' data available for visualization with current filters.")
 
 
 # --- Initial Message when no file is uploaded ---
